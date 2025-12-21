@@ -310,7 +310,7 @@ const RegistrationForm: React.FC<RegistrationFormProps> = ({ onSubmit, openTerms
               <svg className={`w-8 h-8 ${formData.modalidade === Modalidade.RUN ? 'text-blue-600' : 'text-slate-300'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
             </div>
             <p className={`font-black text-lg ${formData.modalidade === Modalidade.RUN ? 'text-blue-600' : 'text-slate-400'}`}>Corrida 5km</p>
-            <p className="text-xs text-slate-500 mt-1 font-medium">Cronometragem inclusa</p>
+            <p className="text-xs text-slate-500 mt-1 font-medium">Primeiro pelotão</p>
           </div>
 
           <div

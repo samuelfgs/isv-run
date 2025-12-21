@@ -10,12 +10,12 @@ interface RegistrationFormProps {
 
 const RegistrationForm: React.FC<RegistrationFormProps> = ({ onSubmit, openTerms }) => {
   const [formData, setFormData] = useState<FormData>({
-    nome: 'João Silva Santos',
-    email: 'joao.silva@example.com',
-    cpf: '123.456.789-09',
-    dataNascimento: '15/03/1990',
+    nome: '',
+    email: '',
+    cpf: '',
+    dataNascimento: '',
     modalidade: Modalidade.RUN,
-    aceitaTermos: true
+    aceitaTermos: false
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);

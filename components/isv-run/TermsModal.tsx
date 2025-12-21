@@ -27,10 +27,6 @@ const TermsModal: React.FC<TermsModalProps> = ({ isOpen, onClose }) => {
           <p>2. Estar ciente de que a corrida é uma atividade que envolve riscos e assume total responsabilidade por qualquer dano pessoal ou material decorrente de sua participação.</p>
           <p>3. Autorizar o uso de sua imagem para fins de divulgação do evento em qualquer meio de comunicação, sem ônus para os organizadores.</p>
           <p>4. Comprometer-se a respeitar as regras do evento, o percurso estabelecido e as orientações da equipe de staff.</p>
-          <p>5. O kit do atleta é pessoal e intransferível.</p>
-          <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
-            <p className="text-sm italic">O não cumprimento de qualquer item deste regulamento poderá acarretar na desclassificação do participante.</p>
-          </div>
         </div>
 
         <div className="p-6 border-t flex justify-end">

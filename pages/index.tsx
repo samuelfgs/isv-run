@@ -94,7 +94,7 @@ const IsvRun: React.FC = () => {
         <div className="absolute inset-0">
           <img
             src="https://images.unsplash.com/photo-1476480862126-209bfaa8edc8?auto=format&fit=crop&q=80&w=2000"
-            alt="Igreja em São Vicente Beach Run"
+            alt="Igreja em São Vicente Corrida"
             className="w-full h-full object-cover animate-in fade-in duration-1000"
           />
           <div className="absolute inset-0 hero-gradient"></div>

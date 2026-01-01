@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Modalidade, FormData } from "../../types/isv-run";
+import { Modalidade, Gender, ShirtSize, FormData } from "../../types/isv-run";
 import { formatPrice } from "../../lib/price-formatter";
 
 interface RegistrationFormProps {
@@ -16,6 +16,8 @@ const RegistrationForm: React.FC<RegistrationFormProps> = ({
     email: "",
     cpf: "",
     dataNascimento: "",
+    gender: Gender.MALE,
+    shirtSize: ShirtSize.M,
     modalidade: Modalidade.RUN,
     aceitaTermos: false,
   });
@@ -25,9 +27,6 @@ const RegistrationForm: React.FC<RegistrationFormProps> = ({
   const [termsError, setTermsError] = useState("");
   const [dateError, setDateError] = useState("");
   const [submitError, setSubmitError] = useState("");
-
-  const registrationsOpen =
-    process.env.NEXT_PUBLIC_REGISTRATIONS_OPEN === "true";
 
   const validateCpf = (cpf: string): boolean => {
     const cleanCpf = cpf.replace(/\D/g, "");
@@ -214,6 +213,8 @@ const RegistrationForm: React.FC<RegistrationFormProps> = ({
           cpf: formData.cpf,
           email: formData.email,
           dataNascimento: formData.dataNascimento,
+          gender: formData.gender,
+          shirtSize: formData.shirtSize,
           modalidade: formData.modalidade,
         }),
       });
@@ -325,6 +326,46 @@ const RegistrationForm: React.FC<RegistrationFormProps> = ({
           {dateError && (
             <p className="text-xs text-red-500 font-medium ml-1">{dateError}</p>
           )}
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+              Sexo
+            </label>
+            <select
+              required
+              className="w-full px-6 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all outline-none text-slate-900"
+              value={formData.gender}
+              onChange={(e) =>
+                setFormData({ ...formData, gender: e.target.value as Gender })
+              }
+            >
+              <option value={Gender.MALE}>Masculino</option>
+              <option value={Gender.FEMALE}>Feminino</option>
+            </select>
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+              Tamanho da Camisa
+            </label>
+            <select
+              required
+              className="w-full px-6 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all outline-none text-slate-900"
+              value={formData.shirtSize}
+              onChange={(e) =>
+                setFormData({ ...formData, shirtSize: e.target.value as ShirtSize })
+              }
+            >
+              <option value={ShirtSize.PP}>PP</option>
+              <option value={ShirtSize.P}>P</option>
+              <option value={ShirtSize.M}>M</option>
+              <option value={ShirtSize.G}>G</option>
+              <option value={ShirtSize.GG}>GG</option>
+              <option value={ShirtSize.XGG}>XGG</option>
+              <option value={ShirtSize.XXGG}>XXGG</option>
+            </select>
+          </div>
         </div>
       </div>
 
@@ -499,22 +540,11 @@ const RegistrationForm: React.FC<RegistrationFormProps> = ({
               <p className="text-sm text-red-600 font-medium">{submitError}</p>
             </div>
           )}
-          {!registrationsOpen && (
-            <div className="bg-blue-50 border-2 border-blue-200 rounded-2xl p-4 text-center mb-3">
-              <p className="text-sm font-bold text-blue-900">
-                🗓️ Inscrições abertas em breve
-              </p>
-              <p className="text-xs text-blue-700 mt-1">
-                Fique atento às nossas redes sociais para saber quando as
-                inscrições estarão disponíveis!
-              </p>
-            </div>
-          )}
           <button
-            disabled={!registrationsOpen || isSubmitting}
+            disabled={isSubmitting}
             type="submit"
             className={`w-full py-5 rounded-3xl font-black text-lg shadow-2xl transition-all flex items-center justify-center gap-3 active:scale-95 ${
-              !registrationsOpen || isSubmitting
+              isSubmitting
                 ? "bg-slate-300 text-slate-500 cursor-not-allowed"
                 : "bg-blue-600 text-white hover:bg-blue-700 hover:-translate-y-1 shadow-blue-500/20"
             }`}

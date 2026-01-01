@@ -16,10 +16,10 @@ export default async function handler(
   }
 
   try {
-    const { nome, cpf, email, dataNascimento, modalidade } = req.body;
+    const { nome, cpf, email, dataNascimento, gender, shirtSize, modalidade } = req.body;
 
     // Validate required fields
-    if (!nome || !cpf || !email || !dataNascimento || !modalidade) {
+    if (!nome || !cpf || !email || !dataNascimento || !gender || !shirtSize || !modalidade) {
       return res.status(400).json({ error: 'Campos obrigatórios faltando' });
     }
 
@@ -74,6 +74,8 @@ export default async function handler(
           metadata: {
             modalidade,
             dataNascimento,
+            gender,
+            shirtSize,
             price: PRICE,
             init_point: mercadoPagoResponse.init_point
           }

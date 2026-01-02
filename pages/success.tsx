@@ -38,16 +38,15 @@ const SuccessPage: React.FC = () => {
     const fetchRegistration = async () => {
       const { external_reference, status } = router.query;
 
-      console.log("dale", router.query)
       // Wait for router to be ready
       if (!router.isReady) return;
 
       // Check if payment was approved
-      // if (status !== 'approved') {
-      //   setError('Pagamento não foi aprovado');
-      //   setLoading(false);
-      //   return;
-      // }
+      if (status !== 'approved') {
+        setError('Pagamento não foi aprovado');
+        setLoading(false);
+        return;
+      }
 
       if (!external_reference) {
         setError('Referência de pagamento não encontrada');

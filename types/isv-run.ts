@@ -19,6 +19,16 @@ export enum ShirtSize {
   XXGG = 'XXGG'
 }
 
+export interface PersonData {
+  nome: string;
+  cpf: string;
+  dataNascimento: string;
+  gender: Gender;
+  shirtSize: ShirtSize;
+  modalidade: Modalidade;
+  saved?: boolean;
+}
+
 export interface FormData {
   nome: string;
   email: string;
@@ -27,6 +37,12 @@ export interface FormData {
   gender: Gender;
   shirtSize: ShirtSize;
   modalidade: Modalidade;
+  aceitaTermos: boolean;
+}
+
+export interface MultiPersonFormData {
+  email: string;
+  people: PersonData[];
   aceitaTermos: boolean;
 }
 

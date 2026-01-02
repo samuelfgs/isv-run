@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Modalidade, Gender, ShirtSize, FormData } from "../../types/isv-run";
+import { Modalidade, Gender, ShirtSize, FormData, PersonData, MultiPersonFormData } from "../../types/isv-run";
 import { formatPrice } from "../../lib/price-formatter";
 
 interface RegistrationFormProps {
@@ -11,22 +11,27 @@ const RegistrationForm: React.FC<RegistrationFormProps> = ({
   onSubmit,
   openTerms,
 }) => {
-  const [formData, setFormData] = useState<FormData>({
-    nome: "",
+  const [formData, setFormData] = useState<MultiPersonFormData>({
     email: "",
-    cpf: "",
-    dataNascimento: "",
-    gender: Gender.MALE,
-    shirtSize: ShirtSize.M,
-    modalidade: Modalidade.RUN,
+    people: [{
+      nome: "",
+      cpf: "",
+      dataNascimento: "",
+      gender: Gender.MALE,
+      shirtSize: ShirtSize.M,
+      modalidade: Modalidade.RUN,
+      saved: false,
+    }],
     aceitaTermos: false,
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [cpfError, setCpfError] = useState("");
+  const [cpfErrors, setCpfErrors] = useState<string[]>([""]);
   const [termsError, setTermsError] = useState("");
-  const [dateError, setDateError] = useState("");
+  const [dateErrors, setDateErrors] = useState<string[]>([""]);
   const [submitError, setSubmitError] = useState("");
+  const [nameErrors, setNameErrors] = useState<string[]>([""]);
+  const [collapsedStates, setCollapsedStates] = useState<boolean[]>([false]);
 
   const validateCpf = (cpf: string): boolean => {
     const cleanCpf = cpf.replace(/\D/g, "");
@@ -34,7 +39,7 @@ const RegistrationForm: React.FC<RegistrationFormProps> = ({
     if (cleanCpf.length !== 11) return false;
 
     // Check if all digits are the same
-    if (/^(\d)\1{10}$/.test(cleanCpf)) return false;
+    // if (/^(\d)\1{10}$/.test(cleanCpf)) return false;
 
     // // Validate first check digit
     // let sum = 0;
@@ -56,7 +61,110 @@ const RegistrationForm: React.FC<RegistrationFormProps> = ({
     return true;
   };
 
-  const handleCpfChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const addPerson = () => {
+    setFormData({
+      ...formData,
+      people: [...formData.people, {
+        nome: "",
+        cpf: "",
+        dataNascimento: "",
+        gender: Gender.MALE,
+        shirtSize: ShirtSize.M,
+        modalidade: Modalidade.RUN,
+        saved: false,
+      }]
+    });
+    setCpfErrors([...cpfErrors, ""]);
+    setDateErrors([...dateErrors, ""]);
+    setNameErrors([...nameErrors, ""]);
+    setCollapsedStates([...collapsedStates, false]);
+  };
+
+  const toggleCollapse = (index: number) => {
+    const newCollapsedStates = [...collapsedStates];
+    newCollapsedStates[index] = !newCollapsedStates[index];
+    setCollapsedStates(newCollapsedStates);
+  };
+
+  const editPerson = (index: number) => {
+    const newPeople = [...formData.people];
+    newPeople[index] = { ...newPeople[index], saved: false };
+    setFormData({ ...formData, people: newPeople });
+
+    const newCollapsedStates = [...collapsedStates];
+    newCollapsedStates[index] = false;
+    setCollapsedStates(newCollapsedStates);
+  };
+
+  const savePerson = (index: number) => {
+    const person = formData.people[index];
+
+    // Validate person data
+    let hasError = false;
+    const newCpfErrors = [...cpfErrors];
+    const newDateErrors = [...dateErrors];
+    const newNameErrors = [...nameErrors];
+
+    if (!person.nome.trim()) {
+      newNameErrors[index] = "Por favor, preencha o nome completo.";
+      hasError = true;
+    } else {
+      newNameErrors[index] = "";
+    }
+
+    if (!validateCpf(person.cpf)) {
+      newCpfErrors[index] = "CPF inválido. Por favor, insira um CPF válido.";
+      hasError = true;
+    }
+
+    const dateValidation = validateDate(person.dataNascimento);
+    if (!dateValidation.valid) {
+      newDateErrors[index] = dateValidation.error;
+      hasError = true;
+    }
+
+    setCpfErrors(newCpfErrors);
+    setDateErrors(newDateErrors);
+    setNameErrors(newNameErrors);
+
+    if (hasError) {
+      return;
+    }
+
+    // Mark person as saved and collapse
+    const newPeople = [...formData.people];
+    newPeople[index] = { ...newPeople[index], saved: true };
+    setFormData({ ...formData, people: newPeople });
+
+    const newCollapsedStates = [...collapsedStates];
+    newCollapsedStates[index] = true;
+    setCollapsedStates(newCollapsedStates);
+
+    // Clear submit error if all people are now saved
+    const allSaved = newPeople.every(p => p.saved);
+    if (allSaved) {
+      setSubmitError("");
+    }
+  };
+
+  const removePerson = (index: number) => {
+    if (formData.people.length === 1) return; // Keep at least one person
+
+    const newPeople = formData.people.filter((_, i) => i !== index);
+    setFormData({ ...formData, people: newPeople });
+    setCpfErrors(cpfErrors.filter((_, i) => i !== index));
+    setDateErrors(dateErrors.filter((_, i) => i !== index));
+    setNameErrors(nameErrors.filter((_, i) => i !== index));
+    setCollapsedStates(collapsedStates.filter((_, i) => i !== index));
+  };
+
+  const updatePerson = (index: number, field: keyof PersonData, value: any) => {
+    const newPeople = [...formData.people];
+    newPeople[index] = { ...newPeople[index], [field]: value };
+    setFormData({ ...formData, people: newPeople });
+  };
+
+  const handleCpfChange = (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
     let value = e.target.value.replace(/\D/g, "");
     if (value.length > 11) value = value.slice(0, 11);
 
@@ -64,19 +172,21 @@ const RegistrationForm: React.FC<RegistrationFormProps> = ({
     value = value.replace(/(\d{3})(\d)/, "$1.$2");
     value = value.replace(/(\d{3})(\d{1,2})$/, "$1-$2");
 
-    setFormData({ ...formData, cpf: value });
+    updatePerson(index, "cpf", value);
 
     // Validate CPF when complete
     const cleanValue = value.replace(/\D/g, "");
+    const newCpfErrors = [...cpfErrors];
     if (cleanValue.length === 11) {
       if (!validateCpf(value)) {
-        setCpfError("CPF inválido");
+        newCpfErrors[index] = "CPF inválido";
       } else {
-        setCpfError("");
+        newCpfErrors[index] = "";
       }
     } else {
-      setCpfError("");
+      newCpfErrors[index] = "";
     }
+    setCpfErrors(newCpfErrors);
   };
 
   const validateDate = (dateStr: string): { valid: boolean; error: string } => {
@@ -143,7 +253,7 @@ const RegistrationForm: React.FC<RegistrationFormProps> = ({
     return { valid: true, error: "" };
   };
 
-  const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleDateChange = (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
     let value = e.target.value.replace(/\D/g, "");
     if (value.length > 8) value = value.slice(0, 8);
 
@@ -153,19 +263,21 @@ const RegistrationForm: React.FC<RegistrationFormProps> = ({
       value = value.replace(/(\d{2})(\d{0,2})/, "$1/$2");
     }
 
-    setFormData({ ...formData, dataNascimento: value });
+    updatePerson(index, "dataNascimento", value);
 
     // Validate date when complete
+    const newDateErrors = [...dateErrors];
     if (value.length === 10) {
       const validation = validateDate(value);
       if (!validation.valid) {
-        setDateError(validation.error);
+        newDateErrors[index] = validation.error;
       } else {
-        setDateError("");
+        newDateErrors[index] = "";
       }
     } else {
-      setDateError("");
+      newDateErrors[index] = "";
     }
+    setDateErrors(newDateErrors);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -173,16 +285,36 @@ const RegistrationForm: React.FC<RegistrationFormProps> = ({
 
     let hasError = false;
 
-    if (!validateCpf(formData.cpf)) {
-      setCpfError("CPF inválido. Por favor, insira um CPF válido.");
-      hasError = true;
+    // Check if all participants are saved
+    const unsavedPeople = formData.people.filter(person => !person.saved);
+    if (unsavedPeople.length > 0) {
+      setSubmitError("Por favor, salve todos os participantes antes de continuar.");
+      window.scrollTo({
+        top: document.querySelector("form")?.offsetTop || 0,
+        behavior: "smooth",
+      });
+      return;
     }
 
-    const dateValidation = validateDate(formData.dataNascimento);
-    if (!dateValidation.valid) {
-      setDateError(dateValidation.error);
-      hasError = true;
-    }
+    const newCpfErrors = [...cpfErrors];
+    const newDateErrors = [...dateErrors];
+
+    // Validate each person
+    formData.people.forEach((person, index) => {
+      if (!validateCpf(person.cpf)) {
+        newCpfErrors[index] = "CPF inválido. Por favor, insira um CPF válido.";
+        hasError = true;
+      }
+
+      const dateValidation = validateDate(person.dataNascimento);
+      if (!dateValidation.valid) {
+        newDateErrors[index] = dateValidation.error;
+        hasError = true;
+      }
+    });
+
+    setCpfErrors(newCpfErrors);
+    setDateErrors(newDateErrors);
 
     if (!formData.aceitaTermos) {
       setTermsError("Você precisa aceitar os termos para continuar.");
@@ -209,13 +341,8 @@ const RegistrationForm: React.FC<RegistrationFormProps> = ({
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          nome: formData.nome,
-          cpf: formData.cpf,
           email: formData.email,
-          dataNascimento: formData.dataNascimento,
-          gender: formData.gender,
-          shirtSize: formData.shirtSize,
-          modalidade: formData.modalidade,
+          people: formData.people,
         }),
       });
 
@@ -230,7 +357,13 @@ const RegistrationForm: React.FC<RegistrationFormProps> = ({
         window.location.href = data.init_point;
       } else {
         // Fallback if no init_point (shouldn't happen)
-        onSubmit(formData);
+        // Create a legacy FormData for backwards compatibility
+        const legacyData: FormData = {
+          ...formData.people[0],
+          email: formData.email,
+          aceitaTermos: formData.aceitaTermos,
+        };
+        onSubmit(legacyData);
       }
     } catch (error: any) {
       console.error("Submission error:", error);
@@ -248,238 +381,361 @@ const RegistrationForm: React.FC<RegistrationFormProps> = ({
   return (
     <form
       onSubmit={handleSubmit}
-      className="bg-white p-8 sm:p-12 rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.05)] border border-slate-100 space-y-8"
+      className="bg-white p-6 sm:p-8 md:p-12 rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.05)] border border-slate-100 space-y-6 sm:space-y-8"
     >
+      {/* Email and Modality Section */}
       <div className="space-y-6">
-        <h3 className="text-xl font-bold text-slate-900">Seus Dados</h3>
+        <h3 className="text-xl font-bold text-slate-900">Informações Gerais</h3>
 
         <div className="space-y-1.5">
           <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
-            Nome Completo
+            E-mail de Contato
           </label>
           <input
             required
-            type="text"
-            placeholder="Ex: João Silva Santos"
+            type="email"
+            placeholder="joao@exemplo.com"
             className="w-full px-6 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all outline-none text-slate-900 placeholder:text-slate-300"
-            value={formData.nome}
-            onChange={(e) => setFormData({ ...formData, nome: e.target.value })}
+            value={formData.email}
+            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
           />
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
-              E-mail de Contato
-            </label>
-            <input
-              required
-              type="email"
-              placeholder="joao@exemplo.com"
-              className="w-full px-6 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all outline-none text-slate-900 placeholder:text-slate-300"
-              value={formData.email}
-              onChange={(e) =>
-                setFormData({ ...formData, email: e.target.value })
-              }
-            />
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
-              CPF
-            </label>
-            <input
-              required
-              type="text"
-              placeholder="000.000.000-00"
-              className={`w-full px-6 py-4 bg-slate-50 border rounded-2xl focus:ring-4 transition-all outline-none font-medium tracking-tight ${
-                cpfError
-                  ? "border-red-500 focus:ring-red-500/10 focus:border-red-500"
-                  : "border-slate-200 focus:ring-blue-500/10 focus:border-blue-500"
-              }`}
-              value={formData.cpf}
-              onChange={handleCpfChange}
-            />
-            {cpfError && (
-              <p className="text-xs text-red-500 font-medium ml-1">
-                {cpfError}
-              </p>
-            )}
-          </div>
-        </div>
-
-        <div className="space-y-1.5">
-          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
-            Data de Nascimento
-          </label>
-          <input
-            required
-            type="text"
-            placeholder="dd/mm/aaaa"
-            className={`w-full px-6 py-4 bg-slate-50 border rounded-2xl focus:ring-4 transition-all outline-none text-slate-900 placeholder:text-slate-300 ${
-              dateError
-                ? "border-red-500 focus:ring-red-500/10 focus:border-red-500"
-                : "border-slate-200 focus:ring-blue-500/10 focus:border-blue-500"
-            }`}
-            value={formData.dataNascimento}
-            onChange={handleDateChange}
-          />
-          {dateError && (
-            <p className="text-xs text-red-500 font-medium ml-1">{dateError}</p>
-          )}
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
-              Sexo
-            </label>
-            <select
-              required
-              className="w-full px-6 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all outline-none text-slate-900"
-              value={formData.gender}
-              onChange={(e) =>
-                setFormData({ ...formData, gender: e.target.value as Gender })
-              }
-            >
-              <option value={Gender.MALE}>Masculino</option>
-              <option value={Gender.FEMALE}>Feminino</option>
-            </select>
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
-              Tamanho da Camisa
-            </label>
-            <select
-              required
-              className="w-full px-6 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all outline-none text-slate-900"
-              value={formData.shirtSize}
-              onChange={(e) =>
-                setFormData({ ...formData, shirtSize: e.target.value as ShirtSize })
-              }
-            >
-              <option value={ShirtSize.PP}>PP</option>
-              <option value={ShirtSize.P}>P</option>
-              <option value={ShirtSize.M}>M</option>
-              <option value={ShirtSize.G}>G</option>
-              <option value={ShirtSize.GG}>GG</option>
-              <option value={ShirtSize.XGG}>XGG</option>
-              <option value={ShirtSize.XXGG}>XXGG</option>
-            </select>
-          </div>
         </div>
       </div>
 
+      {/* People Section */}
       <div className="space-y-6">
-        <h3 className="text-xl font-bold text-slate-900">Sua Escolha</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div
-            onClick={() =>
-              setFormData({ ...formData, modalidade: Modalidade.RUN })
-            }
-            className={`group p-6 rounded-3xl border-2 cursor-pointer transition-all ${
-              formData.modalidade === Modalidade.RUN
-                ? "border-blue-600 bg-blue-50/50"
-                : "border-slate-100 hover:border-slate-200 bg-slate-50/50"
-            }`}
+        <div className="flex justify-between items-center gap-3">
+          <h3 className="text-lg sm:text-xl font-bold text-slate-900 whitespace-nowrap">
+            Participantes ({formData.people.length})
+          </h3>
+          <button
+            type="button"
+            onClick={addPerson}
+            className="px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-xl text-xs sm:text-sm font-bold hover:bg-blue-700 transition-all flex items-center gap-2 whitespace-nowrap"
           >
-            <div className="flex justify-between items-start mb-4">
-              <div
-                className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${
-                  formData.modalidade === Modalidade.RUN
-                    ? "border-blue-600 bg-blue-600"
-                    : "border-slate-300"
-                }`}
-              >
-                {formData.modalidade === Modalidade.RUN && (
-                  <div className="w-2 h-2 bg-white rounded-full" />
-                )}
-              </div>
-              <svg
-                className={`w-8 h-8 ${
-                  formData.modalidade === Modalidade.RUN
-                    ? "text-blue-600"
-                    : "text-slate-300"
-                }`}
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="1.5"
-                  d="M13 10V3L4 14h7v7l9-11h-7z"
-                />
-              </svg>
-            </div>
-            <p
-              className={`font-black text-lg ${
-                formData.modalidade === Modalidade.RUN
-                  ? "text-blue-600"
-                  : "text-slate-400"
-              }`}
-            >
-              Corrida 5km
-            </p>
-            <p className="text-xs text-slate-500 mt-1 font-medium">
-              Primeiro pelotão
-            </p>
-          </div>
-
-          <div
-            onClick={() =>
-              setFormData({ ...formData, modalidade: Modalidade.WALK })
-            }
-            className={`group p-6 rounded-3xl border-2 cursor-pointer transition-all ${
-              formData.modalidade === Modalidade.WALK
-                ? "border-blue-600 bg-blue-50/50"
-                : "border-slate-100 hover:border-slate-200 bg-slate-50/50"
-            }`}
-          >
-            <div className="flex justify-between items-start mb-4">
-              <div
-                className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${
-                  formData.modalidade === Modalidade.WALK
-                    ? "border-blue-600 bg-blue-600"
-                    : "border-slate-300"
-                }`}
-              >
-                {formData.modalidade === Modalidade.WALK && (
-                  <div className="w-2 h-2 bg-white rounded-full" />
-                )}
-              </div>
-              <svg
-                className={`w-8 h-8 ${
-                  formData.modalidade === Modalidade.WALK
-                    ? "text-blue-600"
-                    : "text-slate-300"
-                }`}
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="1.5"
-                  d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
-            </div>
-            <p
-              className={`font-black text-lg ${
-                formData.modalidade === Modalidade.WALK
-                  ? "text-blue-600"
-                  : "text-slate-400"
-              }`}
-            >
-              Caminhada 5km
-            </p>
-            <p className="text-xs text-slate-500 mt-1 font-medium">
-              Ritmo livre
-            </p>
-          </div>
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            <span className="hidden xs:inline sm:inline">Adicionar Pessoa</span>
+            <span className="inline xs:hidden sm:hidden">Adicionar</span>
+          </button>
         </div>
+
+        {formData.people.map((person, index) => (
+          <div key={index} className={`p-4 sm:p-6 rounded-3xl border-2 transition-all ${person.saved ? 'bg-green-50/30 border-green-200' : 'bg-slate-50/50 border-slate-100'}`}>
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <h4 className="text-lg font-bold text-slate-700">
+                    Participante {index + 1}
+                  </h4>
+                  {person.saved && (
+                    <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-bold rounded-lg flex items-center gap-1 whitespace-nowrap">
+                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                      Salvo
+                    </span>
+                  )}
+                </div>
+                {person.saved && collapsedStates[index] && (
+                  <div className="flex flex-wrap items-center gap-2 text-sm text-slate-600 min-w-0">
+                    <span className="font-medium truncate">{person.nome}</span>
+                    <span className="text-slate-400 hidden sm:inline">•</span>
+                    <span className="whitespace-nowrap">{person.modalidade === Modalidade.RUN ? 'Corrida 5km' : 'Caminhada 5km'}</span>
+                  </div>
+                )}
+              </div>
+              <div className="flex items-center gap-2 self-end sm:self-auto">
+                {person.saved && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => toggleCollapse(index)}
+                      className="text-slate-600 hover:text-slate-800 transition-colors p-1.5 sm:p-1"
+                      title={collapsedStates[index] ? "Expandir" : "Colapsar"}
+                    >
+                      <svg className={`w-5 h-5 transition-transform ${collapsedStates[index] ? '' : 'rotate-180'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => editPerson(index)}
+                      className="text-blue-600 hover:text-blue-800 transition-colors p-1.5 sm:p-1"
+                      title="Editar"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                    </button>
+                  </>
+                )}
+                {formData.people.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => removePerson(index)}
+                    className="text-red-500 hover:text-red-700 transition-colors p-1.5 sm:p-1"
+                    title="Remover pessoa"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {!collapsedStates[index] && (
+              <div className="space-y-6 mt-6">
+
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                Nome Completo
+              </label>
+              <input
+                required
+                type="text"
+                placeholder="Ex: João Silva Santos"
+                className={`w-full px-6 py-4 bg-white border rounded-2xl focus:ring-4 transition-all outline-none text-slate-900 placeholder:text-slate-300 ${
+                  nameErrors[index]
+                    ? "border-red-500 focus:ring-red-500/10 focus:border-red-500"
+                    : "border-slate-200 focus:ring-blue-500/10 focus:border-blue-500"
+                }`}
+                value={person.nome}
+                onChange={(e) => updatePerson(index, "nome", e.target.value)}
+              />
+              {nameErrors[index] && (
+                <p className="text-xs text-red-500 font-medium ml-1">
+                  {nameErrors[index]}
+                </p>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                  CPF
+                </label>
+                <input
+                  required
+                  type="text"
+                  placeholder="000.000.000-00"
+                  className={`w-full px-6 py-4 bg-white border rounded-2xl focus:ring-4 transition-all outline-none font-medium tracking-tight ${
+                    cpfErrors[index]
+                      ? "border-red-500 focus:ring-red-500/10 focus:border-red-500"
+                      : "border-slate-200 focus:ring-blue-500/10 focus:border-blue-500"
+                  }`}
+                  value={person.cpf}
+                  onChange={(e) => handleCpfChange(index, e)}
+                />
+                {cpfErrors[index] && (
+                  <p className="text-xs text-red-500 font-medium ml-1">
+                    {cpfErrors[index]}
+                  </p>
+                )}
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                  Data de Nascimento
+                </label>
+                <input
+                  required
+                  type="text"
+                  placeholder="dd/mm/aaaa"
+                  className={`w-full px-6 py-4 bg-white border rounded-2xl focus:ring-4 transition-all outline-none text-slate-900 placeholder:text-slate-300 ${
+                    dateErrors[index]
+                      ? "border-red-500 focus:ring-red-500/10 focus:border-red-500"
+                      : "border-slate-200 focus:ring-blue-500/10 focus:border-blue-500"
+                  }`}
+                  value={person.dataNascimento}
+                  onChange={(e) => handleDateChange(index, e)}
+                />
+                {dateErrors[index] && (
+                  <p className="text-xs text-red-500 font-medium ml-1">{dateErrors[index]}</p>
+                )}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                  Sexo
+                </label>
+                <select
+                  required
+                  className="w-full px-6 py-4 bg-white border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all outline-none text-slate-900"
+                  value={person.gender}
+                  onChange={(e) => updatePerson(index, "gender", e.target.value as Gender)}
+                >
+                  <option value={Gender.MALE}>Masculino</option>
+                  <option value={Gender.FEMALE}>Feminino</option>
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                  Tamanho da Camisa
+                </label>
+                <select
+                  required
+                  className="w-full px-6 py-4 bg-white border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all outline-none text-slate-900"
+                  value={person.shirtSize}
+                  onChange={(e) => updatePerson(index, "shirtSize", e.target.value as ShirtSize)}
+                >
+                  <option value={ShirtSize.PP}>PP</option>
+                  <option value={ShirtSize.P}>P</option>
+                  <option value={ShirtSize.M}>M</option>
+                  <option value={ShirtSize.G}>G</option>
+                  <option value={ShirtSize.GG}>GG</option>
+                  <option value={ShirtSize.XGG}>XGG</option>
+                  <option value={ShirtSize.XXGG}>XXGG</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Modalidade Selection */}
+            <div className="space-y-3">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                Modalidade
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div
+                  onClick={() => updatePerson(index, "modalidade", Modalidade.RUN)}
+                  className={`group p-6 rounded-3xl border-2 cursor-pointer transition-all ${
+                    person.modalidade === Modalidade.RUN
+                      ? "border-blue-600 bg-blue-50/50"
+                      : "border-slate-200 hover:border-slate-300 bg-white"
+                  }`}
+                >
+                  <div className="flex justify-between items-start mb-4">
+                    <div
+                      className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${
+                        person.modalidade === Modalidade.RUN
+                          ? "border-blue-600 bg-blue-600"
+                          : "border-slate-300"
+                      }`}
+                    >
+                      {person.modalidade === Modalidade.RUN && (
+                        <div className="w-2 h-2 bg-white rounded-full" />
+                      )}
+                    </div>
+                    <svg
+                      className={`w-8 h-8 ${
+                        person.modalidade === Modalidade.RUN
+                          ? "text-blue-600"
+                          : "text-slate-300"
+                      }`}
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="1.5"
+                        d="M13 10V3L4 14h7v7l9-11h-7z"
+                      />
+                    </svg>
+                  </div>
+                  <p
+                    className={`font-black text-lg ${
+                      person.modalidade === Modalidade.RUN
+                        ? "text-blue-600"
+                        : "text-slate-400"
+                    }`}
+                  >
+                    Corrida 5km
+                  </p>
+                  <p className="text-xs text-slate-500 mt-1 font-medium">
+                    Primeiro pelotão
+                  </p>
+                </div>
+
+                <div
+                  onClick={() => updatePerson(index, "modalidade", Modalidade.WALK)}
+                  className={`group p-6 rounded-3xl border-2 cursor-pointer transition-all ${
+                    person.modalidade === Modalidade.WALK
+                      ? "border-blue-600 bg-blue-50/50"
+                      : "border-slate-200 hover:border-slate-300 bg-white"
+                  }`}
+                >
+                  <div className="flex justify-between items-start mb-4">
+                    <div
+                      className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${
+                        person.modalidade === Modalidade.WALK
+                          ? "border-blue-600 bg-blue-600"
+                          : "border-slate-300"
+                      }`}
+                    >
+                      {person.modalidade === Modalidade.WALK && (
+                        <div className="w-2 h-2 bg-white rounded-full" />
+                      )}
+                    </div>
+                    <svg
+                      className={`w-8 h-8 ${
+                        person.modalidade === Modalidade.WALK
+                          ? "text-blue-600"
+                          : "text-slate-300"
+                      }`}
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="1.5"
+                        d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    </svg>
+                  </div>
+                  <p
+                    className={`font-black text-lg ${
+                      person.modalidade === Modalidade.WALK
+                        ? "text-blue-600"
+                        : "text-slate-400"
+                    }`}
+                  >
+                    Caminhada 5km
+                  </p>
+                  <p className="text-xs text-slate-500 mt-1 font-medium">
+                    Ritmo livre
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Save Button */}
+            <button
+              type="button"
+              onClick={() => savePerson(index)}
+              disabled={person.saved}
+              className={`w-full py-4 rounded-2xl font-bold text-sm transition-all flex items-center justify-center gap-2 ${
+                person.saved
+                  ? "bg-green-100 text-green-700 cursor-not-allowed"
+                  : "bg-blue-600 text-white hover:bg-blue-700 active:scale-95"
+              }`}
+            >
+              {person.saved ? (
+                <>
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
+                  Participante Salvo
+                </>
+              ) : (
+                <>
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  Salvar Participante
+                </>
+              )}
+            </button>
+              </div>
+            )}
+          </div>
+        ))}
       </div>
 
       <div className="pt-4 space-y-6">
@@ -527,12 +783,12 @@ const RegistrationForm: React.FC<RegistrationFormProps> = ({
         </div>
 
         <div className="space-y-4">
-          <div className="flex justify-between items-center px-2">
-            <span className="text-sm font-bold text-slate-400 uppercase tracking-widest">
-              Total a pagar
+          <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2 px-2">
+            <span className="text-xs sm:text-sm font-bold text-slate-400 uppercase tracking-wider sm:tracking-widest">
+              Total a pagar ({formData.people.length} {formData.people.length === 1 ? 'pessoa' : 'pessoas'})
             </span>
-            <span className="text-2xl font-black text-slate-900">
-              {formatPrice(process.env.NEXT_PUBLIC_PRICE || "70")}
+            <span className="text-3xl sm:text-2xl font-black text-slate-900">
+              {formatPrice(String((+(process.env.NEXT_PUBLIC_PRICE || "70")) * formData.people.length))}
             </span>
           </div>
           {submitError && (

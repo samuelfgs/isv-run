@@ -23,21 +23,27 @@ export const transporter = nodemailer.createTransport({
  */
 export const sendIsvRunEmail = async (inscrito: IscritoRecord) => {
   const { id, nome, email, cpf, metadata } = inscrito;
-  const { modalidade } = metadata;
+  const { people, modalidadeDescription, modalidade } = metadata;
 
-  // Generate QR code for check-in
-  const qrCodeUrl = `https://igrejasv.com/ingresso/run/${id}`;
-  const qrCodeBuffer = await generateQRCodeSvg(qrCodeUrl);
-  const buf = Buffer.from(qrCodeBuffer as any);
+  // Generate individual QR codes for each participant
+  const peopleWithQR = await Promise.all(
+    people.map(async (person: any, index: number) => {
+      const qrCodeUrl = `https://igrejasv.com/ingresso/run/${id}/${index}`;
+      const qrCodeBuffer = await generateQRCodeSvg(qrCodeUrl);
+      const buf = Buffer.from(qrCodeBuffer as any);
 
-  // Generate PDF receipt
+      return {
+        ...person,
+        qrCodeSvg: buf
+      };
+    })
+  );
+
+  // Generate PDF receipt with all participants (one page per participant)
   const pdfBuffer = await renderToBuffer(
     <ComprovanteRun
-      name={nome}
+      people={peopleWithQR}
       email={email}
-      cpf={cpf}
-      svg={buf}
-      modalidade={modalidade}
     />
   );
 

@@ -19,6 +19,15 @@ export interface IscritoRecord {
     dataNascimento: string;
     price: number;
     init_point: string;
+    people: Array<{
+      nome: string;
+      cpf: string;
+      dataNascimento: string;
+      gender: string;
+      shirtSize: string;
+      modalidade: 'walk' | 'run';
+    }>;
+    modalidadeDescription: string;
   };
 }
 

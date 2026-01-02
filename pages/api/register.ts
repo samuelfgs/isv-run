@@ -16,31 +16,53 @@ export default async function handler(
   }
 
   try {
-    const { nome, cpf, email, dataNascimento, gender, shirtSize, modalidade } = req.body;
+    const { email, people } = req.body;
 
     // Validate required fields
-    if (!nome || !cpf || !email || !dataNascimento || !gender || !shirtSize || !modalidade) {
+    if (!email || !people || !Array.isArray(people) || people.length === 0) {
       return res.status(400).json({ error: 'Campos obrigatórios faltando' });
     }
 
-    // Generate unique MercadoPago ID
+    // Validate each person
+    for (const person of people) {
+      if (!person.nome || !person.cpf || !person.dataNascimento || !person.gender || !person.shirtSize || !person.modalidade) {
+        return res.status(400).json({ error: 'Dados incompletos para um dos participantes' });
+      }
+    }
+
+    // Generate unique MercadoPago ID for this registration batch
     const mercadoPagoId = nanoid() + nanoid();
 
     // Create MercadoPago preference
     const preference = new Preference(client);
+    const totalQuantity = people.length;
+    const totalPrice = PRICE * totalQuantity;
+
+    // Count modalidades for description
+    const runCount = people.filter((p: any) => p.modalidade === Modalidade.RUN).length;
+    const walkCount = people.filter((p: any) => p.modalidade === Modalidade.WALK).length;
+    let modalidadeDescription = '';
+    if (runCount > 0 && walkCount > 0) {
+      modalidadeDescription = `${runCount} Corrida, ${walkCount} Caminhada`;
+    } else if (runCount > 0) {
+      modalidadeDescription = `Corrida 5km`;
+    } else {
+      modalidadeDescription = `Caminhada 5km`;
+    }
+
     const mercadoPagoBody = {
       items: [
         {
           id: "0",
-          title: `ISV RUN - ${modalidade === Modalidade.RUN ? 'Corrida 5km' : 'Caminhada 5km'}`,
-          description: "Inscrição para ISV RUN - Igreja em São Vicente - 07 de Fevereiro",
-          quantity: 1,
+          title: `ISV RUN - ${modalidadeDescription}`,
+          description: `Inscrição para ${totalQuantity} ${totalQuantity === 1 ? 'pessoa' : 'pessoas'} - ISV RUN - Igreja em São Vicente - 07 de Fevereiro`,
+          quantity: totalQuantity,
           currency_id: "BRL",
           unit_price: PRICE,
         }
       ],
       payer: {
-        name: nome,
+        name: people[0].nome,
         email: email,
       },
       external_reference: mercadoPagoId,
@@ -62,25 +84,34 @@ export default async function handler(
       return res.status(500).json({ error: 'Erro ao criar preferência de pagamento', details: error.message });
     }
 
-    // Insert data into Supabase
+    // Insert single registration with all participants in metadata
+    const insert = {
+      nome: people[0].nome, // Primary registrant name
+      cpf: people[0].cpf, // Primary registrant CPF
+      email: email,
+      mercado_pago_id: mercadoPagoId,
+      metadata: {
+        people: people.map((person: any) => ({
+          nome: person.nome,
+          cpf: person.cpf,
+          dataNascimento: person.dataNascimento,
+          gender: person.gender,
+          shirtSize: person.shirtSize,
+          modalidade: person.modalidade,
+        })),
+        price: PRICE,
+        totalQuantity: totalQuantity,
+        totalPrice: totalPrice,
+        runCount: runCount,
+        walkCount: walkCount,
+        modalidadeDescription: modalidadeDescription,
+        init_point: mercadoPagoResponse.init_point
+      }
+    };
+
     const { data, error } = await supabase
       .from('inscritos')
-      .insert([
-        {
-          nome,
-          cpf,
-          email,
-          mercado_pago_id: mercadoPagoId,
-          metadata: {
-            modalidade,
-            dataNascimento,
-            gender,
-            shirtSize,
-            price: PRICE,
-            init_point: mercadoPagoResponse.init_point
-          }
-        }
-      ])
+      .insert([insert])
       .select();
 
     if (error) {

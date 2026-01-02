@@ -34,12 +34,6 @@ export default async function handler(
     try {
       await sendIsvRunEmail(inscrito as IscritoRecord);
 
-      // Optionally update email_sent flag
-      await supabase
-        .from('inscritos')
-        .update({ email_sent: true })
-        .eq('id', id);
-
       return res.status(200).json({
         success: true,
         message: 'Email sent successfully',

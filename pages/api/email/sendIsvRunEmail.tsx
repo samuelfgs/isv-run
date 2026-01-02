@@ -23,7 +23,7 @@ export const transporter = nodemailer.createTransport({
  */
 export const sendIsvRunEmail = async (inscrito: IscritoRecord) => {
   const { id, nome, email, cpf, metadata } = inscrito;
-  const { people, modalidadeDescription, modalidade } = metadata;
+  const { people, modalidadeDescription } = metadata;
 
   // Generate individual QR codes for each participant
   const peopleWithQR = await Promise.all(
@@ -52,7 +52,11 @@ export const sendIsvRunEmail = async (inscrito: IscritoRecord) => {
     from: 'Igreja SV <contato@igrejasv.com>',
     to: email,
     subject: 'Inscrição Confirmada - ISV RUN 2026',
-    html: generateIsvRunEmailHtml(modalidade),
+    html: generateIsvRunEmailHtml(people.map(p => ({
+      nome: p.nome,
+      modalidade: p.modalidade,
+      shirtSize: p.shirtSize
+    }))),
     attachments: [
       {
         filename: 'comprovante-isv-run.pdf',

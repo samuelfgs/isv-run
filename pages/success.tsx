@@ -3,6 +3,15 @@ import { useRouter } from 'next/router';
 import QRCode from 'qrcode';
 import { formatPrice } from '../lib/price-formatter';
 
+interface ParticipantData {
+  nome: string;
+  cpf: string;
+  dataNascimento: string;
+  gender: string;
+  shirtSize: string;
+  modalidade: 'walk' | 'run';
+}
+
 interface RegistrationData {
   id: string;
   nome: string;
@@ -10,8 +19,11 @@ interface RegistrationData {
   cpf: string;
   mercado_pago_id: string;
   metadata: {
-    modalidade: 'walk' | 'run';
-    dataNascimento: string;
+    people: ParticipantData[];
+    modalidadeDescription: string;
+    totalQuantity: number;
+    totalPrice: number;
+    price: number;
   };
 }
 
@@ -20,21 +32,22 @@ const SuccessPage: React.FC = () => {
   const [registration, setRegistration] = useState<RegistrationData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [qrCode, setQrCode] = useState<string>('');
+  const [qrCodes, setQrCodes] = useState<string[]>([]);
 
   useEffect(() => {
     const fetchRegistration = async () => {
       const { external_reference, status } = router.query;
 
+      console.log("dale", router.query)
       // Wait for router to be ready
       if (!router.isReady) return;
 
       // Check if payment was approved
-      if (status !== 'approved') {
-        setError('Pagamento não foi aprovado');
-        setLoading(false);
-        return;
-      }
+      // if (status !== 'approved') {
+      //   setError('Pagamento não foi aprovado');
+      //   setLoading(false);
+      //   return;
+      // }
 
       if (!external_reference) {
         setError('Referência de pagamento não encontrada');
@@ -54,17 +67,20 @@ const SuccessPage: React.FC = () => {
 
         setRegistration(data.data);
 
-        // Generate QR Code
-        const qrUrl = `${window.location.origin}/ingresso/run/${data.data.id}`;
-        const qrCodeDataUrl = await QRCode.toDataURL(qrUrl, {
-          width: 300,
-          margin: 2,
-          color: {
-            dark: '#1e293b',
-            light: '#ffffff',
-          },
+        // Generate QR Codes for each participant
+        const qrCodePromises = data.data.metadata.people.map(async (_: any, index: number) => {
+          const qrUrl = `${window.location.origin}/ingresso/run/${data.data.id}/${index}`;
+          return await QRCode.toDataURL(qrUrl, {
+            width: 300,
+            margin: 2,
+            color: {
+              dark: '#1e293b',
+              light: '#ffffff',
+            },
+          });
         });
-        setQrCode(qrCodeDataUrl);
+        const generatedQrCodes = await Promise.all(qrCodePromises);
+        setQrCodes(generatedQrCodes);
 
         setLoading(false);
       } catch (err) {
@@ -113,7 +129,7 @@ const SuccessPage: React.FC = () => {
   }
 
   const firstName = registration.nome.split(' ')[0];
-  const modalidadeText = registration.metadata.modalidade === 'run' ? 'Corrida 5km' : 'Caminhada 5km';
+  const { people, modalidadeDescription, totalPrice } = registration.metadata;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-slate-100">
@@ -164,14 +180,28 @@ const SuccessPage: React.FC = () => {
 
             <div className="p-8 space-y-6">
               {/* Registration Info */}
-              <div className="grid md:grid-cols-2 gap-6">
-                <div>
-                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Nome Completo</p>
-                  <p className="text-lg font-semibold text-slate-900">{registration.nome}</p>
-                </div>
-                <div>
-                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Modalidade</p>
-                  <p className="text-lg font-semibold text-blue-600">{modalidadeText}</p>
+              <div>
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">
+                  {people.length === 1 ? 'Participante' : `Participantes (${people.length})`}
+                </p>
+                <div className="space-y-4">
+                  {people.map((person, index) => (
+                    <div key={index} className="bg-slate-50 rounded-xl p-4 border border-slate-200">
+                      <p className="text-lg font-bold text-slate-900 mb-2">{person.nome}</p>
+                      <div className="grid grid-cols-2 gap-2 text-sm">
+                        <div>
+                          <span className="text-slate-500">Modalidade:</span>{' '}
+                          <span className="font-semibold text-blue-600">
+                            {person.modalidade === 'run' ? 'Corrida 5km' : 'Caminhada 5km'}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-slate-500">Camisa:</span>{' '}
+                          <span className="font-semibold text-slate-900">{person.shirtSize.toUpperCase()}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
 
@@ -189,7 +219,7 @@ const SuccessPage: React.FC = () => {
                 </div>
                 <div>
                   <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Valor Pago</p>
-                  <p className="text-lg font-semibold text-green-600">{formatPrice(process.env.NEXT_PUBLIC_PRICE || '70')}</p>
+                  <p className="text-lg font-semibold text-green-600">{formatPrice(totalPrice.toString())}</p>
                 </div>
               </div>
 
@@ -206,23 +236,34 @@ const SuccessPage: React.FC = () => {
           {/* QR Code Card */}
           <div className="bg-white rounded-3xl shadow-xl overflow-hidden mb-8">
             <div className="bg-gradient-to-r from-slate-800 to-slate-900 px-8 py-6">
-              <h2 className="text-2xl font-bold text-white">Seu QR Code de Check-in</h2>
+              <h2 className="text-2xl font-bold text-white">
+                {people.length === 1 ? 'Seu QR Code de Check-in' : 'QR Codes de Check-in'}
+              </h2>
             </div>
 
-            <div className="p-8 text-center space-y-4">
-              <p className="text-slate-600">
-                Apresente este QR Code no dia do evento para fazer seu check-in
+            <div className="p-8 space-y-6">
+              <p className="text-slate-600 text-center">
+                {people.length === 1
+                  ? 'Apresente este QR Code no dia do evento para fazer seu check-in'
+                  : 'Cada participante deve apresentar seu QR Code individual no dia do evento'}
               </p>
 
-              {qrCode && (
-                <div className="inline-block p-6 bg-slate-50 rounded-2xl border-2 border-slate-200">
-                  <img src={qrCode} alt="QR Code de Check-in" className="w-64 h-64 mx-auto" />
-                </div>
-              )}
+              <div className={`grid ${people.length === 1 ? 'grid-cols-1' : 'md:grid-cols-2'} gap-6`}>
+                {people.map((person, index) => (
+                  <div key={index} className="text-center">
+                    <p className="text-sm font-bold text-slate-700 mb-3">{person.nome}</p>
+                    {qrCodes[index] && (
+                      <div className="inline-block p-4 bg-slate-50 rounded-2xl border-2 border-slate-200">
+                        <img src={qrCodes[index]} alt={`QR Code de ${person.nome}`} className="w-48 h-48 mx-auto" />
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
 
               <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-sm text-slate-700">
                 <p className="font-semibold text-blue-900 mb-1">💡 Dica importante:</p>
-                <p>Salve este QR Code ou tire uma captura de tela para acesso rápido no dia do evento!</p>
+                <p>Salve {people.length === 1 ? 'este QR Code' : 'estes QR Codes'} ou tire uma captura de tela para acesso rápido no dia do evento!</p>
               </div>
             </div>
           </div>

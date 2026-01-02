@@ -15,7 +15,6 @@ export interface IscritoRecord {
   mercado_pago_id: string;
   email_sent: boolean;
   metadata: {
-    modalidade: 'walk' | 'run';
     dataNascimento: string;
     price: number;
     init_point: string;
